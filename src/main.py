@@ -14,12 +14,15 @@ def cli():
 
 @cli.command("list")
 def list() -> None:
-    """Lists all values for existing keys from a CSV"""
+    """Lists all pairs of keys and corresponding values"""
     rows = get_csv_rows(KV_PAIRS_FILE_NAME)
+
+    if len(rows) == 0:
+        click.echo("Nothing to show...")
 
     for idx, row in enumerate(rows):
         max_width = max(len(row[0]), len(row[1]))
-        print(f"{idx}: {row[1].ljust(max_width)} has key\t{row[0]}")
+        click.echo(f"{idx}: {row[1].ljust(max_width)} has key\t{row[0]}")
 
 
 @cli.command("add")
@@ -32,7 +35,7 @@ def add(value: str) -> None:
 
     add_key(value_formatted, key)
 
-    print(f"Added new key for {value}: {key}")
+    click.echo(f"Added new key for {value}: {key}")
 
 
 @cli.command("revoke")
@@ -40,7 +43,11 @@ def add(value: str) -> None:
 def revoke(value: str) -> None:
     """Revokes an existing key"""
 
-    click.echo(f"Are you sure you want to delete {value}'s key ?")
+    user_input = input(f"Are you sure you want to delete {value}'s key ? (y/n) ")
+
+    if user_input.lower().strip() != "y":
+        click.echo("Aborting")
+        return
 
     value_formatted = value.lower()
     key = generate_key(value_formatted)
@@ -48,4 +55,4 @@ def revoke(value: str) -> None:
     remove_key(key)
     remove_pair(value_formatted)
 
-    print(f"Key removed for {value}")
+    click.echo(f"Key removed for {value}")
