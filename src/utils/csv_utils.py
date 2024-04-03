@@ -12,39 +12,38 @@ def _format_csv_file_name(file_name: str) -> str:
     return res
 
 
-def ensure_csv_exist():
+def ensure_csv_exist(func):
     """
     DECORATOR: Ensures vital CSV files exist
     """
 
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            for file in [API_KEYS_FILE_NAME, KV_PAIRS_FILE_NAME]:
-                full_name = _format_csv_file_name(file)
-                if not os.path.exists(full_name):
-                    open(full_name, "a").close
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        for file in [API_KEYS_FILE_NAME, KV_PAIRS_FILE_NAME]:
+            full_name = _format_csv_file_name(file)
+            if not os.path.exists(full_name):
+                open(full_name, "a").close
+        return func(*args, **kwargs)
 
-        return wrapper
-
-    return decorator
+    return wrapper
 
 
-@ensure_csv_exist()
+@ensure_csv_exist
 def get_csv_rows(file_name: str) -> list[list[str]]:
     """
     Returns a list of rows for any CSV file
     """
+    full_name = _format_csv_file_name(file_name)
     rows = []
 
-    with open(file_name, newline="") as csv_file:
+    with open(full_name, newline="") as csv_file:
         reader = csv.reader(csv_file)
         rows = [row for row in reader]
 
     return rows
 
 
-@ensure_csv_exist()
+@ensure_csv_exist
 def add_key(value: str, key: str) -> None:
     """
     - Adds the new key to the keys CSV file
@@ -60,16 +59,19 @@ def add_key(value: str, key: str) -> None:
     if value in existing_pair_values:
         raise ValueError(f"Key already exists for {value}")
 
-    with open(api_keys_file_name, "a", newline="") as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow([key])
+    try:
+        with open(api_keys_file_name, "a", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow([key])
 
-    with open(kv_pairs_file_name, "a", newline="") as csv_file:
-        writer = csv.writer(csv_file)
-        writer.writerow([masked_key, value])
+        with open(kv_pairs_file_name, "a", newline="") as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow([masked_key, value])
+    except Exception as e:
+        print(f"error: {e}")
 
 
-@ensure_csv_exist()
+@ensure_csv_exist
 def remove_key(target_key: str) -> None:
     """
     Removes an API key from the CSV if it exists
@@ -87,7 +89,7 @@ def remove_key(target_key: str) -> None:
                 writer.writerow([key])
 
 
-@ensure_csv_exist()
+@ensure_csv_exist
 def remove_pair(target_value: str) -> None:
     """
     Removes a KV pair from the CSV if it exists
