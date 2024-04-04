@@ -12,7 +12,7 @@
 
 ## Why ?
 
-For those who in a very specific situation where they have no web server, no database, and need to manage an environment variable called 'API_KEY' containing a list of unqiue keys.
+For those in a very specific situation where they have no web server, no database, and need to manage an environment variable called 'API_KEY' containing a list of unqiue keys.
 
 ## Setup
 
