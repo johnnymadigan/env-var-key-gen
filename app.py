@@ -3,4 +3,7 @@
 from src.main import cli
 
 if __name__ == "__main__":
-    cli()
+    try:
+        cli()
+    except Exception as ex:
+        print(f"Command failed: {ex}")
