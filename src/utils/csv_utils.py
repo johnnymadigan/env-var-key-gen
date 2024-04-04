@@ -1,105 +1,101 @@
-from src.constants.consts import API_KEYS_FILE_NAME, KV_PAIRS_FILE_NAME
+from src.constants.consts import API_KEYS_FILE_NAME, KV_PAIRS_FILE_NAME, OUTPUT_DIR
 from src.utils.string_utils import mask_string
-from functools import wraps
+from src.utils.key_utils import generate_key
+import fnmatch
 import csv
 import os
 
+# INVARIANTS:
+#   - All seed values are converted to lowercase
 
-def _format_csv_file_name(file_name: str) -> str:
-    """Adds .csv extension to the file name"""
-    EXTENSION = ".csv"
-    res = file_name if file_name.endswith(EXTENSION) else file_name + EXTENSION
-    return res
-
-
-def ensure_csv_exist(func):
-    """
-    DECORATOR: Ensures vital CSV files exist
-    """
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        for file in [API_KEYS_FILE_NAME, KV_PAIRS_FILE_NAME]:
-            full_name = _format_csv_file_name(file)
-            if not os.path.exists(full_name):
-                open(full_name, "a").close
-        return func(*args, **kwargs)
-
-    return wrapper
+def ensure_csv_extension(file_name: str) -> str:
+    return file_name if file_name.endswith(".csv") else file_name + ".csv"
 
 
-@ensure_csv_exist
 def get_csv_rows(file_name: str) -> list[list[str]]:
+    """Returns a list of rows for any CSV file"""
+    csv_name = ensure_csv_extension(file_name)
+
+    # Guard: file not found
+    if not os.path.exists(csv_name):
+        raise FileNotFoundError(f"File '{csv_name}' not found")
+
+    with open(csv_name, newline="") as csv_file:
+        return [row for row in csv.reader(csv_file)]
+
+def delete_csv() -> None:
+    for file in os.listdir(OUTPUT_DIR):
+        if fnmatch.fnmatch(file, "*.csv"):
+            csv_file = os.path.join(OUTPUT_DIR, file)
+            os.remove(csv_file)
+
+def add_key(seed_value: str) -> str:
     """
-    Returns a list of rows for any CSV file
-    """
-    full_name = _format_csv_file_name(file_name)
-    rows = []
-
-    with open(full_name, newline="") as csv_file:
-        reader = csv.reader(csv_file)
-        rows = [row for row in reader]
-
-    return rows
-
-
-@ensure_csv_exist
-def add_key(value: str, key: str) -> None:
-    """
-    - Adds the new key to the keys CSV file
-    - Adds a relationship row between the value and key in the KV pairs CSV file
+    - Generates a new key based on the value
+    - Adds the new key to 'Keys' CSV
+    - Adds a relationship record between the Value and Key in 'KV Pairs' CSV
     - Throws if value already exists
     """
-    api_keys_file_name = _format_csv_file_name(API_KEYS_FILE_NAME)
-    kv_pairs_file_name = _format_csv_file_name(KV_PAIRS_FILE_NAME)
-    masked_key = mask_string(key)
-    existing_pair_values = [row[1] for row in get_csv_rows(kv_pairs_file_name)]
+    # Gen and format new values
+    seed_value_formatted = seed_value.lower()
+    key = generate_key(seed_value_formatted)
 
-    # Confirm value not taken
-    if value in existing_pair_values:
-        raise ValueError(f"Key already exists for {value}")
+    api_keys_csv_name = ensure_csv_extension(os.path.join(OUTPUT_DIR, API_KEYS_FILE_NAME))
+    kv_pairs_csv_name = ensure_csv_extension(os.path.join(OUTPUT_DIR, KV_PAIRS_FILE_NAME))
 
-    try:
-        with open(api_keys_file_name, "a", newline="") as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow([key])
+    existing_pair_values = [row[1] for row in get_csv_rows(kv_pairs_csv_name)]
 
-        with open(kv_pairs_file_name, "a", newline="") as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerow([masked_key, value])
-    except Exception as e:
-        print(f"error: {e}")
+    # Guard: confirm value not taken
+    if seed_value_formatted in existing_pair_values:
+        raise ValueError(f"Key already exists for {seed_value}")
+
+    with open(api_keys_csv_name, "a", newline="") as csv_file:
+        csv.writer(csv_file).writerow([key])
+
+    with open(kv_pairs_csv_name, "a", newline="") as csv_file:
+        csv.writer(csv_file).writerow([mask_string(key), seed_value_formatted])
+
+    return key
 
 
-@ensure_csv_exist
-def remove_key(target_key: str) -> None:
+def remove_key_for_value(value: str) -> None:
     """
-    Removes an API key from the CSV if it exists
+    - Removes an API key from 'Keys' CSV if it exists
+    - Always syncs this change in 'KV Pairs' CSV
+    - Throws if key already deleted from 'Keys' CSV
     """
-    file_name = _format_csv_file_name(API_KEYS_FILE_NAME)
+    # Gen and format values to remove
+    value_formatted = value.lower()
+    target_key = generate_key(value_formatted)
+
+    file_name = ensure_csv_extension(os.path.join(OUTPUT_DIR, API_KEYS_FILE_NAME))
+
     existing_keys = [row[0] for row in get_csv_rows(file_name)]
 
-    # Re-write w/o target key if it exists
-    if target_key in existing_keys:
-        with open(file_name, "w", newline="") as csv_file:
-            writer = csv.writer(csv_file)
-            for key in existing_keys:
-                if key == target_key:
-                    continue
-                writer.writerow([key])
+    # Guard: ensure value not already deleted
+    _remove_pair(value_formatted) # sync
 
-
-@ensure_csv_exist
-def remove_pair(target_value: str) -> None:
-    """
-    Removes a KV pair from the CSV if it exists
-    """
-    file_name = _format_csv_file_name(KV_PAIRS_FILE_NAME)
-    existing_pairs = get_csv_rows(file_name)
-
+    if target_key not in existing_keys:
+        raise ValueError(f"Key already deleted for {value}")
+    
     with open(file_name, "w", newline="") as csv_file:
-        writer = csv.writer(csv_file)
-        for pair in existing_pairs:
-            if pair[1] == target_value:
-                continue
-            writer.writerow(pair)
+        csv.writer(csv_file).writerows([[key] for key in existing_keys if key != target_key])
+
+
+def _remove_pair(value: str) -> None:
+    """
+    - Removes a pair from the 'KV Pair' CSV if it exists
+    - Pairs: <key masked, value>
+    """
+    target_value = value.lower()
+
+    file_name = ensure_csv_extension(os.path.join(OUTPUT_DIR, KV_PAIRS_FILE_NAME))
+
+    existing_pairs = get_csv_rows(file_name)
+    existing_pair_values = [pair[1] for pair in existing_pairs]
+
+    # Re-write w/o target if it exists
+    if target_value in existing_pair_values:
+        with open(file_name, "w", newline="") as csv_file:
+            csv.writer(csv_file).writerow([pair for pair in existing_pairs if pair[1] != target_value])
+

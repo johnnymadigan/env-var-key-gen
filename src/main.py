@@ -1,10 +1,8 @@
-from src.utils.csv_utils import add_key, get_csv_rows, remove_key, remove_pair
-from src.constants.consts import KV_PAIRS_FILE_NAME
-from src.utils.key_utils import generate_key
+from src.utils.csv_utils import delete_csv, get_csv_rows, add_key, remove_key_for_value
+from src.utils.decorators import ensure_files_exist, handle_errors
+from src.constants.consts import KV_PAIRS_FILE_NAME, OUTPUT_DIR
 import click
-
-# INVARIANTS:
-#   - All seed values are converted to lowercase
+import os
 
 
 @click.group()
@@ -13,9 +11,12 @@ def cli():
 
 
 @cli.command("list")
+@ensure_files_exist
+@handle_errors
 def list() -> None:
     """Lists all pairs of keys and corresponding values"""
-    rows = get_csv_rows(KV_PAIRS_FILE_NAME)
+    fq_csv_name = os.path.join(OUTPUT_DIR, KV_PAIRS_FILE_NAME)
+    rows = get_csv_rows(fq_csv_name)
 
     if len(rows) == 0:
         click.echo("Nothing to show...")
@@ -27,32 +28,45 @@ def list() -> None:
 
 @cli.command("add")
 @click.option("-v", "--value", type=str, prompt="Seed value")
+@ensure_files_exist
+@handle_errors
 def add(value: str) -> None:
     """Creates and saves a new key given a seed value"""
 
-    value_formatted = value.lower()
-    key = generate_key(value_formatted)
-
-    add_key(value_formatted, key)
+    key = add_key(value)
 
     click.echo(f"Added new key for {value}: {key}")
 
 
 @cli.command("revoke")
 @click.option("-v", "--value", type=str, prompt="Seed value")
+@ensure_files_exist
+@handle_errors
 def revoke(value: str) -> None:
     """Revokes an existing key"""
 
-    user_input = input(f"Are you sure you want to delete {value}'s key ? (y/n) ")
+    confirmation = click.prompt(f"Are you sure you want to delete {value}'s key ? (y/n)")
 
-    if user_input.lower().strip() != "y":
+    if confirmation.lower().strip() != "y":
         click.echo("Aborting")
         return
 
-    value_formatted = value.lower()
-    key = generate_key(value_formatted)
-
-    remove_key(key)
-    remove_pair(value_formatted)
+    remove_key_for_value(value)
 
     click.echo(f"Key removed for {value}")
+
+@cli.command("nuke")
+@ensure_files_exist
+@handle_errors
+def nuke() -> None:
+    """Nukes all CSV files"""
+
+    confirmation = click.prompt(f"Are you sure you want to delete all CSV files in {OUTPUT_DIR} dir ? (y/n)")
+
+    if confirmation.lower().strip() != "y":
+        click.echo("Aborting")
+        return
+
+    delete_csv()
+
+    click.echo("CSVs deleted")
