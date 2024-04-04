@@ -1,8 +1,7 @@
 from src.utils.csv_utils import delete_csv, delete_csv_row, ensure_csv_extension, get_csv_rows, append_csv_row
 from src.constants.consts import API_KEYS_FILE_NAME, KV_PAIRS_FILE_NAME, OUTPUT_DIR
+from src.utils.string_utils import mask_string, generate_key
 from src.utils.decorators import ensure_files_exist
-from src.utils.string_utils import mask_string
-from src.utils.key_utils import generate_key
 import click
 import os
 
