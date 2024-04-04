@@ -1,7 +1,6 @@
 from src.constants.consts import API_KEYS_FILE_NAME, KV_PAIRS_FILE_NAME, OUTPUT_DIR
 from src.utils.csv_utils import ensure_csv_extension
 from functools import wraps
-import click
 import os
 
 
@@ -22,19 +21,6 @@ def ensure_files_exist(func):
             if not os.path.exists(csv):
                 with open(csv, "a"):
                     pass
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
-def handle_errors(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except Exception as ex:
-            click.echo(f"Command failed: {ex}")
-
         return func(*args, **kwargs)
 
     return wrapper
