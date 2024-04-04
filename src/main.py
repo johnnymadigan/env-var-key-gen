@@ -1,8 +1,18 @@
-from src.utils.csv_utils import delete_csv, get_csv_rows, add_key, remove_key_for_value
-from src.utils.decorators import ensure_files_exist, handle_errors
-from src.constants.consts import KV_PAIRS_FILE_NAME, OUTPUT_DIR
+from src.utils.csv_utils import delete_csv, delete_csv_row, ensure_csv_extension, get_csv_rows, append_csv_row
+from src.constants.consts import API_KEYS_FILE_NAME, KV_PAIRS_FILE_NAME, OUTPUT_DIR
+from src.utils.decorators import ensure_files_exist
+from src.utils.string_utils import mask_string
+from src.utils.key_utils import generate_key
 import click
 import os
+
+
+# INVARIANTS:
+#   - All seed values are converted to lowercase
+
+
+FQ_API_KEYS_FILE_NAME = ensure_csv_extension(os.path.join(OUTPUT_DIR, API_KEYS_FILE_NAME))
+FQ_KV_PAIRS_FILE_NAME = ensure_csv_extension(os.path.join(OUTPUT_DIR, KV_PAIRS_FILE_NAME))
 
 
 @click.group()
@@ -12,11 +22,9 @@ def cli():
 
 @cli.command("list")
 @ensure_files_exist
-@handle_errors
 def list() -> None:
     """Lists all pairs of keys and corresponding values"""
-    fq_csv_name = os.path.join(OUTPUT_DIR, KV_PAIRS_FILE_NAME)
-    rows = get_csv_rows(fq_csv_name)
+    rows = get_csv_rows(FQ_KV_PAIRS_FILE_NAME)
 
     if len(rows) == 0:
         click.echo("Nothing to show...")
@@ -29,19 +37,31 @@ def list() -> None:
 @cli.command("add")
 @click.option("-v", "--value", type=str, prompt="Seed value")
 @ensure_files_exist
-@handle_errors
 def add(value: str) -> None:
-    """Creates and saves a new key given a seed value"""
+    """
+    - Generates a new key based on the value
+    - Adds the new key to 'Keys' CSV
+    - Adds a relationship record between the Value and Key in 'KV Pairs' CSV
+    - Throws if value already exists
+    """
+    # Gen and format new values
+    new_value = value.lower()
+    key = generate_key(new_value)
+    existing_pair_values = [row[1] for row in get_csv_rows(FQ_KV_PAIRS_FILE_NAME)]
 
-    key = add_key(value)
+    # Guard: confirm value not taken
+    if new_value in existing_pair_values:
+        raise ValueError(f"Key already exists for '{new_value}'")
 
-    click.echo(f"Added new key for {value}: {key}")
+    append_csv_row(FQ_API_KEYS_FILE_NAME, key)
+    append_csv_row(FQ_KV_PAIRS_FILE_NAME, [mask_string(key), new_value])
+
+    click.echo(f"Added new key for {new_value}: {key}")
 
 
 @cli.command("revoke")
 @click.option("-v", "--value", type=str, prompt="Seed value")
 @ensure_files_exist
-@handle_errors
 def revoke(value: str) -> None:
     """Revokes an existing key"""
 
@@ -51,13 +71,18 @@ def revoke(value: str) -> None:
         click.echo("Aborting")
         return
 
-    remove_key_for_value(value)
+    # Gen and format new values
+    target_value = value.lower()
+    target_key = generate_key(target_value)
 
-    click.echo(f"Key removed for {value}")
+    delete_csv_row(FQ_API_KEYS_FILE_NAME, target_key)
+    delete_csv_row(FQ_KV_PAIRS_FILE_NAME, target_value)
+
+    click.echo(f"Key revoked for {target_value}")
+
 
 @cli.command("nuke")
 @ensure_files_exist
-@handle_errors
 def nuke() -> None:
     """Nukes all CSV files"""
 
@@ -67,6 +92,6 @@ def nuke() -> None:
         click.echo("Aborting")
         return
 
-    delete_csv()
+    delete_csv(OUTPUT_DIR)
 
     click.echo("CSVs deleted")
