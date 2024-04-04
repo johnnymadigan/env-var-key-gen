@@ -4,16 +4,15 @@
 
 <!-- Demo -->
 <div align=center>
-  <h1>Game of Life v2</h1>
+  <h1>ENV VAR KEY GEN</h1>
   <p>Quick script to safely mutate a list of keys for an environment variable</p>
-  <img src="docs/images/gol-demo-all.gif">
 </div>
 
 <!-- Main content -->
 
 ## Why ?
 
-For those who in a very specific situation where they have no web server, no database, and need to mutate an environment variable containing a list of keys.
+For those who in a very specific situation where they have no web server, no database, and need to manage an environment variable called 'API_KEY' containing a list of unqiue keys.
 
 ## Setup
 
@@ -35,44 +34,18 @@ For those who in a very specific situation where they have no web server, no dat
 
 The following is a <span style="display: inline-block; padding: 0px 5px; border-radius: 5px; color: gold; background-color: blue;">Python</span> script of _Game of Life_ into an enhanced version - highly interactive and feature rich.
 
-- Settings can be passed via CLI args, see `./game-of-life -h`
-- Initial settings are applied from CLI
-- You can modify/reset to defaults in the main menu
-- <kbd>↑</kbd> <kbd>↓</kbd> to navigate through settings
-- Start typing to set new input for selected setting
-- <kbd>←</kbd> <kbd>→</kbd> to cycle through fixed setting options
-- <kbd>delete</kbd> to clear the input
-- <kbd>enter</kbd> to save the input
-- <kbd>tab</kbd> <kbd>tab</kbd> to reset
-- <kbd>space</kbd> <kbd>space</kbd> to start
-- <kbd>Ctrl</kbd> <kbd>C</kbd> to exit
-- GIFs are saved in _./gifs_
+- Run _app.py_ to manage keys with following args:
+  | Arg | Desc |
+  |-----------------|-----------------|
+  | `list` | Lists all relationships between api keys (masked) and their seed values |
+  | `add [-v SEED_VALUE]` | Adds a new key and relationship row |
+  | `revoke [-v SEED_VALUE]` | Revokes an existing key and relationship row |
+  | `nuke` | Deletes all CSVs from the output dir |
 
-## Dev notes
-
-### _How do I debug ?_
-
-- Use VSCode:
-
-  ![venv](docs/images/venv.png)
-
-  ![debug](docs/images/debug.png)
-
-### _How do I run unit tests ?_
-
-- Use VSCode:
-
-  ![product-screenshot](docs/images/tests.png)
-
-### _How do I regen the dependency graph ?_
-
-- Run `pipdeptree --graph-output png > dependencies.png`
-
-## Dependency Graph
-
-<img src="docs/images/dependencies.png">
-
-- _curses_ for pretty screens + key events
-- _numpy_ for merging multiple cell matrices (for ghost effect)
-- _argparse_ for CLI args support
-- _matplotlib_ + _pillow_ for creating GIF outputs
+- Sync your CSV API keys with your system's 'API_KEY' environment variable
+  - Python scripts cannot modify env variables on a system-level (only within its own process)
+  - To persist changes, run the shell script within current shell env
+  - Set execute perms: `chmod u+x sync.sh`
+  - Run: `source ./sync.sh`
+  - Confirm: `echo $API_KEY`
+  - ⚠️ Be careful running shell scripts!!! take a look at _sync.sh_ first
